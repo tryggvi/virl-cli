@@ -1,0 +1,74 @@
+#!/usr/bin/perl -w
+# This is a template for perl scripts
+
+use strict;
+use Getopt::Long;
+
+## Settings
+my $user = "guest";
+my $pass = "guest";
+
+## Global variables
+my ($o_verb, $o_help, $o_sim_list);
+
+## Funtions
+sub check_options {
+	Getopt::Long::Configure ("bundling");
+	GetOptions(
+		'v'     => \$o_verb,            'verbose'	=> \$o_verb,
+		'h'     => \$o_help,            'help'	=> \$o_help,
+		'L'     => \$o_sim_list,            'sim-list'	=> \$o_sim_list,
+	);
+
+	if(defined ($o_help)){
+		help();
+		exit 1;
+	}
+
+	if(defined($o_sim_list)){
+		sim_list();
+	}
+}
+
+sub RunQuery($){
+	my ($query) = @_;
+
+	my $cmd = "/usr/local/binvirl_std_client --quiet --username $user --password = $pass $query";
+
+	my $data;
+	open(Q, "cmd|");
+	while(<Q>){
+		chomp($_);
+		if($data){
+			$data .= "\n";
+		}
+		$data = "$data";
+	}
+	close(Q);
+
+	return $data;
+}
+
+sub sim_list(){
+	my $results = RunQuery("simengine-list");
+	print "Got $results\n";
+}
+
+sub help() {
+	print "$0\n";
+        print <<EOT;
+-v, --verbose
+        print extra debugging information
+-h, --help
+	print this help message
+EOT
+}
+
+sub print_usage() {
+        print "Usage: $0 [-v] ]\n";
+}
+
+## Main
+check_options();
+
+#...code...#
