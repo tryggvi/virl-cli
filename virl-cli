@@ -3,13 +3,16 @@
 
 use strict;
 use Getopt::Long;
+use JSON;
+
+#apt-get install libjson-perl
 
 ## Settings
 my $user = "guest";
 my $pass = "guest";
 
 ## Global variables
-my ($o_verb, $o_help, $o_sim_list);
+my ($o_verb, $o_help, $o_sim_list, $o_session_id, $o_console_list);
 
 ## Funtions
 sub check_options {
@@ -18,6 +21,8 @@ sub check_options {
 		'v'     => \$o_verb,            'verbose'	=> \$o_verb,
 		'h'     => \$o_help,            'help'	=> \$o_help,
 		'L'     => \$o_sim_list,            'sim-list'	=> \$o_sim_list,
+		'C'     => \$o_console_list,            'console-list'	=> \$o_console_list,
+		's:s'     => \$o_session_id,            'session-id:s'	=> \$o_session_id,
 	);
 
 	if(defined ($o_help)){
@@ -28,32 +33,65 @@ sub check_options {
 	if(defined($o_sim_list)){
 		sim_list();
 	}
+
+	if(defined($o_console_list) && defined($o_session_id)){
+		console_list();
+	}
 }
 
 sub RunQuery($){
 	my ($query) = @_;
 
-	my $cmd = "/usr/local/binvirl_std_client --quiet --username $user --password = $pass $query";
+	my $cmd = "/usr/local/bin/virl_std_client --json --quiet --username $user --password $pass $query";
+	print "Running $cmd\n";
 
 	my $data;
-	open(Q, "cmd|");
+	open(Q, "$cmd|");
 	while(<Q>){
 		chomp($_);
 		if($data){
 			$data .= "\n";
 		}
-		$data = "$data";
+		$data .= $_;
 	}
 	close(Q);
 
-	return $data;
+	my $json = new JSON;
+	my %output =  %{$json->decode($data)};
+	return %output;
 }
 
 sub sim_list(){
-	my $results = RunQuery("simengine-list");
-	print "Got $results\n";
+	my %results = RunQuery("simengine-list");
+	print "SessionID                                Status\n";
+	use Data::Dumper;
+	while (my ($key, $value) = each %results) {
+		my %x = %$value;
+		while (my ($xkey, $xvalue) = each %x) {
+			my %y = %$xvalue;
+			printf("%-40s  %-10s\n", 
+				$xkey, 
+				$y{"status"}
+			);
+#			print Dumper($xvalue);
+		}
+	}
+#	print Dumper(%results);
 }
 
+sub console_list(){
+	my %results = RunQuery("simengine-serial-port  --port-id console --mode telnet --session-id $o_session_id");
+	print "SessionID                                IP:port                                  Telnet\n";
+	use Data::Dumper;
+	while (my ($key, $value) = each %results) {
+		my ($ip, $port) = split(":", $value);
+		printf("%-40s %-40s %-40s\n",
+			$key,
+			"$ip:$port",
+			"telnet $ip $port"
+		);
+	}
+}
 sub help() {
 	print "$0\n";
         print <<EOT;
