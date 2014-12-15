@@ -99,6 +99,12 @@ sub help() {
         print extra debugging information
 -h, --help
 	print this help message
+-L, --sim-list
+	List simulation labs
+-C, --console-list
+	List console addresses for session/simulation lab
+-s [session_id], session-id=[session_id]
+	Query based on session_id
 EOT
 }
 
