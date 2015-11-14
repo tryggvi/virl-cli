@@ -34,7 +34,7 @@ sub check_options {
 		sim_list();
 	}
 
-	if(defined($o_console_list) && defined($o_session_id)){
+	if(defined($o_console_list)){
 		console_list();
 	}
 }
@@ -43,7 +43,7 @@ sub RunQuery($){
 	my ($query) = @_;
 
 	my $cmd = "/usr/local/bin/virl_std_client --json --quiet --username $user --password $pass $query";
-	print "Running $cmd\n";
+	print "Running $cmd\n" if $o_verb;
 
 	my $data;
 	open(Q, "$cmd|");
@@ -62,36 +62,67 @@ sub RunQuery($){
 }
 
 sub sim_list(){
-	my %results = RunQuery("simengine-list");
+	my @data = sim_list_raw();
+
 	print "SessionID                                Status\n";
-	use Data::Dumper;
+	foreach my $x (@data){
+		my %y = %$x;
+		printf("%-40s  %-10s\n", 
+			$y{"session_id"}, 
+			$y{"status"}
+		);
+	}
+}
+
+sub sim_list_raw(){
+	my %results = RunQuery("simengine-list");
+	my @output;
+	my $i=0;
 	while (my ($key, $value) = each %results) {
 		my %x = %$value;
 		while (my ($xkey, $xvalue) = each %x) {
 			my %y = %$xvalue;
-			printf("%-40s  %-10s\n", 
-				$xkey, 
-				$y{"status"}
-			);
-#			print Dumper($xvalue);
+			$output[$i] = ({
+				"session_id" => $xkey,
+				"status" => $y{"status"}
+			});
+			$i++;
 		}
 	}
-#	print Dumper(%results);
+	return @output;
 }
 
-sub console_list(){
-	my %results = RunQuery("simengine-serial-port  --port-id console --mode telnet --session-id $o_session_id");
-	print "SessionID                                IP:port                                  Telnet\n";
-	use Data::Dumper;
-	while (my ($key, $value) = each %results) {
-		my ($ip, $port) = split(":", $value);
-		printf("%-40s %-40s %-40s\n",
-			$key,
-			"$ip:$port",
-			"telnet $ip $port"
-		);
+sub console_list_display($){
+	my ($session_id) = @_;
+	my %results = RunQuery("simengine-serial-port  --port-id console --mode telnet --session-id $session_id");
+
+	foreach my $key (sort keys %results) {
+		my $value = $results{$key};
+		if($value){
+			my ($ip, $port) = split(":", $value);
+			printf("%-30s %-35s %-40s %-40s\n",
+				$key,
+				"$ip:$port",
+				"telnet $ip $port",
+				$session_id,
+			);
+		}
 	}
 }
+
+sub console_list($){
+	print "Hostname                       IP:port                             Telnet                                   Session\n";
+	if(defined($o_session_id)){
+		my @data = console_list_display($o_session_id);
+	} else {
+		my @data = sim_list_raw();
+		foreach my $x (@data){
+			my %y = %$x;
+			console_list_display($y{"session_id"});
+		}
+	}
+}
+
 sub help() {
 	print "$0\n";
         print <<EOT;
